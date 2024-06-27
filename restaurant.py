@@ -152,11 +152,11 @@ if __name__ == "__main__":
     is_valid_inputs = False
 
     # ask for user input
-    user_name = input("Howdy! This is a restaurant recommender app for USA. Please enter your name or if you want to quit, enter quit: ")
+    user_name = input("Howdy! This is a restaurant recommender app. Please enter your name or if you want to quit, enter quit: ")
     is_valid_name, user_name = validate_input(user_name)
     if is_valid_name and user_name.lower() != "quit":
         #print(f"This is the chosen name: {user_name}")     
-        user_city = input("Please enter a US city (e.g. New York City or NYC) or if you want to quit, enter quit: ")
+        user_city = input("Please enter a city (e.g. Tokyo or NYC) or if you want to quit, enter quit: ")
         is_valid_city, user_city = validate_input(user_city)
         if is_valid_city and user_city.lower() != "quit":
             #print(f"This is the chosen city: {user_city}")
@@ -188,7 +188,7 @@ if __name__ == "__main__":
         restart_loop = False
         is_valid_answer, ask_again = validate_input(ask_again)
         if is_valid_answer and ask_again.lower() == "yes":    
-            user_city = input("Please enter a US city (e.g. New York City or NYC) or if you want to quit, enter quit: ")
+            user_city = input("Please enter a city (e.g. Tokyo or NYC) or if you want to quit, enter quit: ")
             is_valid_city, user_city = validate_input(user_city)
             if is_valid_city and user_city.lower() != "quit":
                 is_valid_inputs = True
@@ -200,14 +200,14 @@ if __name__ == "__main__":
             result = get_gpt_response(user_name, user_city)
             print(result)
 
-            ask_again = input("Would you like to search again?") # should respond yes or no
+            ask_again = input("Would you like to search again? ") # should respond yes or no
             is_valid_answer, ask_again = validate_input(ask_again)
 
             if is_valid_answer and ask_again.lower() == "no":
                 restart_loop = False
 
             elif is_valid_answer and ask_again.lower() == "yes":    
-                user_city = input("Please enter a US city (e.g. New York City or NYC) or if you want to quit, enter quit: ")
+                user_city = input("Please enter a city (e.g. Tokyo or NYC) or if you want to quit, enter quit: ")
                 is_valid_city, user_city = validate_input(user_city)
                 
                 if is_valid_city and user_city.lower() != "quit":
