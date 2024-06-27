@@ -64,10 +64,6 @@ def get_yelp(user_input):
     # Query the database to check the stored data
     cursor.execute('SELECT * FROM Restaurants')
     rows = cursor.fetchall()
-
-    # Print the stored data
-    for row in rows:
-        print(row)
     
     conn.close()
 
@@ -102,39 +98,37 @@ def get_restaurants():
 
 # make the prompt to give to chatgpt
 def make_prompt(user_name, user_location, restaurants):
-    prompt = f"{user_name}is asking for restaurant recommendations around {user_location}. Here is a list of restaurants:\n"
+    user_prompt = f"I, {user_name}, am asking for restaurant recommendations around {user_location}. Which 3 restaurants do you recommend for a great dining experience?"
+    gpt_prompt = "You are a restaurant finder system. Here is a list of restaurants:\n"
     for name, location, address in restaurants:
-        prompt += f"Name: {name}, Location: {location}, Address: {address}\n"
-    prompt += "\nBased on this information, which 3 restaurants do you recommend for a great dining experience?"
-    return prompt
+        gpt_prompt += f"Name: {name}, Location: {location}, Address: {address}\n"
+    #gpt_prompt = "\nBased on this information, "
+    return user_prompt, gpt_prompt
 
 def get_gpt_response(name, location):
 
     # Set environment variables
     my_api_key = os.getenv('OPENAI_API_KEY')
-    client = OpenAI(api_key=my_api_key))
+    client = OpenAI(api_key=my_api_key)
 
     # Fetch restaurant data from the database
     restaurants = get_restaurants()
 
     # Create a prompt using the fetched data
-    prompt = make_prompt(name, location, restaurants)
+    user_prompt, gpt_prompt = make_prompt(name, location, restaurants)
 
+    # ask chatgpt for a response
+    gpt_response = client.chat.completions.create(
+    model="gpt-3.5-turbo",
+    messages=[
+        {"role": "system", "content": gpt_prompt},
+        {"role": "user", "content": user_prompt},
+    ],
+    temperature=0,)
 
-    # Make a request to the OpenAI API
-    gpt_response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=prompt,
-        max_tokens=500,
-        n=1,
-        stop=None,
-        temperature=0.7,
-        api_key=my_api_key
-    )
 
     # Get the response text
-    return gpt_response.choices[0].text.strip()
-
+    return gpt_response.choices[0].message.content
 
 
 
@@ -161,11 +155,11 @@ if __name__ == "__main__":
     user_name = input("Howdy! This is a restaurant recommender app for USA. Please enter your name or if you want to quit, enter quit: ")
     is_valid_name, user_name = validate_input(user_name)
     if is_valid_name and user_name.lower() != "quit":
-        print(f"This is the chosen name: {user_name}")     
+        #print(f"This is the chosen name: {user_name}")     
         user_city = input("Please enter a US city (e.g. New York City or NYC) or if you want to quit, enter quit: ")
         is_valid_city, user_city = validate_input(user_city)
         if is_valid_city and user_city.lower() != "quit":
-            print(f"This is the chosen city: {user_city}")
+            #print(f"This is the chosen city: {user_city}")
             is_valid_inputs = True
 
     if is_valid_inputs == True:
@@ -189,6 +183,37 @@ if __name__ == "__main__":
         get_yelp(user_city)
         result = get_gpt_response(user_name, user_city)
         print(result)
+
+        ask_again = input("Would you like to search again?") # should respond yes or no
+        restart_loop = False
+        is_valid_answer, ask_again = validate_input(ask_again)
+        if is_valid_answer and ask_again.lower() == "yes":    
+            user_city = input("Please enter a US city (e.g. New York City or NYC) or if you want to quit, enter quit: ")
+            is_valid_city, user_city = validate_input(user_city)
+            if is_valid_city and user_city.lower() != "quit":
+                is_valid_inputs = True
+                restart_loop = True
+
+        while restart_loop == True:
+            deleteRows()
+            get_yelp(user_city)
+            result = get_gpt_response(user_name, user_city)
+            print(result)
+
+            ask_again = input("Would you like to search again?") # should respond yes or no
+            is_valid_answer, ask_again = validate_input(ask_again)
+
+            if is_valid_answer and ask_again.lower() == "no":
+                restart_loop = False
+
+            elif is_valid_answer and ask_again.lower() == "yes":    
+                user_city = input("Please enter a US city (e.g. New York City or NYC) or if you want to quit, enter quit: ")
+                is_valid_city, user_city = validate_input(user_city)
+                
+                if is_valid_city and user_city.lower() != "quit":
+                    is_valid_inputs = True
+                    #restart_loop = True
+
 
 
     # validate input somewhere here
