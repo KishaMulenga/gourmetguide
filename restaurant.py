@@ -103,7 +103,7 @@ def get_restaurants():
 # make the prompt to give to chatgpt
 def make_prompt(user_name, user_location, restaurants):
     user_prompt = f"I, {user_name}, am asking for restaurant recommendations around {user_location}. "
-    user_prompt += "Which 5 restaurants do you recommend for a great dining experience? For each recommended, give me a short pitch (1-2 sentences) on why I should go there. "
+    user_prompt += "Which 3 restaurants do you recommend for a great dining experience? For each recommended, give me a short pitch (1-2 sentences) on why I should go there. "
     user_prompt += "Please list the restaurant name, location, address, category, and price level."
     user_prompt += "If there is none there, please say so."
     gpt_prompt = "You are a restaurant finder system. Here is a list of restaurants:\n"
@@ -112,7 +112,7 @@ def make_prompt(user_name, user_location, restaurants):
     
     return user_prompt, gpt_prompt
 
-def get_gpt_response(name, location):
+def get_gpt_response(name, location, email):
 
     # Set environment variables
     my_api_key = os.getenv('OPENAI_API_KEY')
@@ -124,6 +124,7 @@ def get_gpt_response(name, location):
     # Create a prompt using the fetched data
     user_prompt, gpt_prompt = make_prompt(name, location, restaurants)
 
+    print("\nPlease wait a moment for our response...\n")
     # ask chatgpt for a response
     gpt_response = client.chat.completions.create(
     model="gpt-3.5-turbo",
@@ -135,9 +136,23 @@ def get_gpt_response(name, location):
 
 
     # Get the response text
+    response_text = gpt_response.choices[0].message.content
+    print(response_text)
 
     # parse chatgpt code and ask user what they want, validate it, and return choice
-    return gpt_response.choices[0].message.content
+    restaurant_names = re.findall(r'\d+\.\s+([^\n]+)', response_text)
+
+    user_favorite = input("\nOut of these restaurants, pick one to save as your favorite (enter a number 1-3): ")
+    is_valid_fav, user_favorite = validate_user(user_favorite)
+    
+    if is_valid_fav:
+        # access db
+        con = sqlite3.connect("users.db")
+        cur = con.cursor()
+        cur.execute('''UPDATE Users SET Favorite = ? WHERE Email = ?''', (restaurant_names[int(user_favorite)-1],user_email,))
+        con.commit()
+        con.close()
+
 
 
 
@@ -210,23 +225,26 @@ def check_user_by_email(email):
     
     # Fetch the first result (if any)
     user = cursor.fetchone()
-    
-    conn.close()
-    # Return True if user found, False otherwise
     if user is not None:
-        return True
+        cursor.execute('''SELECT Name FROM Users WHERE Email = ?''', (email,))
+        name = cursor.fetchone()
+        conn.close()
+
+        return True, name[0]
     else:
-        return False
+        conn.close()
+        return False, " "
+    # Return True if user found, False otherwise
     
 if __name__ == "__main__":
     
     is_valid_inputs = False
     categories = ["Italian", "Chinese", "Greek", "French", "Indian", 
-                "Japanese", "Thai", "American", "Nigerian", "Jamaican", "Spanish",
-                "Mexican", "Korean", "African", "Asian", "European"]
+                "Japanese", "Thai", "American", "Nigerian", "Carribean", "Spanish",
+                "Mexican", "Korean", "African", "Middle Eastern", "British"]
     
     # ask for user input
-    starting_prompt = input("Howdy! This is a restaurant recommender app. \n1. New User \n2. Returning User \n3. Quit\n Enter a number (1-3):")
+    starting_prompt = input("Howdy! This is a restaurant recommender app. \n1. New User \n2. Returning User \n3. Quit\nEnter a number (1-3):")
     is_valid_choice, user_choice = validate_user(starting_prompt)
 
     if is_valid_choice and user_choice == "1":
@@ -240,7 +258,7 @@ if __name__ == "__main__":
             is_valid_email, user_email = validate_email(user_email)
 
             if is_valid_email:
-                print("\nLet's start the search!")
+                print(f"\n{user_name}, let's start the search!")
                 user_city = input("Please enter a city (e.g. Tokyo or NYC): ")
                 is_valid_city, user_city = validate_input(user_city)
                 if is_valid_city:
@@ -273,11 +291,10 @@ if __name__ == "__main__":
         is_valid_email, user_email = validate_email(user_email)
 
         # check if user exists in db
-        user_exists = check_user_by_email(user_email)
-        print(user_exists)
+        user_exists, user_name = check_user_by_email(user_email)
 
         if user_exists:
-            print("\nWelcome back! Let's start the search!")
+            print(f"\nWelcome back {user_name}! Let's start the search!")
             user_city = input("Please enter a city (e.g. Tokyo or NYC): ")
             is_valid_city, user_city = validate_input(user_city)
                 
@@ -354,64 +371,57 @@ if __name__ == "__main__":
         con.close()
 
         get_yelp(user_city, user_category, user_price)
-        result = get_gpt_response(user_name, user_city)
-        print(result)
-
+        get_gpt_response(user_name, user_city, user_email)
+        
         ask_again = input("Would you like to search again? (enter yes or no) ") # should respond yes or no
         restart_loop = False
         is_valid_answer, ask_again = validate_input(ask_again)
 
         if is_valid_answer and ask_again.lower() == "yes":   
-
-            user_city = input("Please enter a city (e.g. Tokyo or NYC): ")
-            is_valid_city, user_city = validate_input(user_city)
-
-            if is_valid_city:
-                is_valid_inputs = True
-                restart_loop = True
+            restart_loop = True
 
         while restart_loop == True:
-            deleteRows()
-            get_yelp(user_city, user_category, user_price)
-            result = get_gpt_response(user_name, user_city)
-            print(result)
-
-            ask_again = input("Would you like to search again? (enter yes or no) ") # should respond yes or no
-            is_valid_answer, ask_again = validate_input(ask_again)
-
-            if is_valid_answer and ask_again.lower() == "no":
-                restart_loop = False
-
-            elif is_valid_answer and ask_again.lower() == "yes":    
-                user_city = input("Please enter a city (e.g. Tokyo or NYC): ")
-                is_valid_city, user_city = validate_input(user_city)
+            deleteRows()  
+            user_city = input("Please enter a city (e.g. Tokyo or NYC): ")
+            is_valid_city, user_city = validate_input(user_city)
                 
-                if is_valid_city and user_city.lower():
+            if is_valid_city and user_city.lower():
 
-                    print("Choose from the categories below (enter the number i.e., 1 for Italian). Or enter 'none' for no specific cuisine")
+                print("Choose from the categories below (enter the number i.e., 1 for Italian). Or enter 'none' for no specific cuisine")
 
-                    for i in range(len(categories)):
-                        print(f"{i+1}. {categories[i]}")
+                for i in range(len(categories)):
+                    print(f"{i+1}. {categories[i]}")
                     
-                    user_category = input("Chosen cuisine: ")
-                    is_valid_category, user_category = validate_category(user_category)
+                user_category = input("Chosen cuisine: ")
+                is_valid_category, user_category = validate_category(user_category)
                     
-                    if is_valid_category and user_category.isdigit():
-                        user_category = categories[int(user_category)-1]
-                        user_price = input("\nChoose a Price level from below \n1. $ (budget)\n2. $$ (moderate)\n3. $$$ (expensive)\n4. $$$$ (luxury) \nEnter a number 1-4: ")
+                if is_valid_category and user_category.isdigit():
+                    user_category = categories[int(user_category)-1]
+                    user_price = input("\nChoose a Price level from below \n1. $ (budget)\n2. $$ (moderate)\n3. $$$ (expensive)\n4. $$$$ (luxury) \nEnter a number 1-4: ")
                         
-                        is_valid_price, user_price = validate_price(user_price)
-                        if is_valid_price:
-                            is_valid_inputs = True
+                    is_valid_price, user_price = validate_price(user_price)
+                    if is_valid_price:
+                        is_valid_inputs = True
 
-                    elif is_valid_category and user_category.lower() == "none":
-                        user_price = input("\nChoose a Price level from below \n1. $ (budget)\n2. $$ (moderate)\n3. $$$ (expensive)\n4. $$$$ (luxury) \nEnter a number 1-4: ")
+                elif is_valid_category and user_category.lower() == "none":
+                    user_price = input("\nChoose a Price level from below \n1. $ (budget)\n2. $$ (moderate)\n3. $$$ (expensive)\n4. $$$$ (luxury) \nEnter a number 1-4: ")
                         
-                        is_valid_price, user_price = validate_price(user_price)
-                        if is_valid_price:
-                            is_valid_inputs = True
+                    is_valid_price, user_price = validate_price(user_price)
+                    if is_valid_price:
+                        is_valid_inputs = True
 
+                
+                get_yelp(user_city, user_category, user_price)
+                get_gpt_response(user_name, user_city, user_email)
 
+                ask_again = input("Would you like to search again? (enter yes or no) ") # should respond yes or no
+                is_valid_answer, ask_again = validate_input(ask_again)
+                
+                # if yes clear favorite
+                cursor.execute('''UPDATE Users SET Favorite = 'None' WHERE Email = ?''', (user_email,))
+
+                if is_valid_answer and ask_again.lower() == "no":
+                    restart_loop = False
 
     # validate input somewhere here
     
