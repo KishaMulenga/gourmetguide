@@ -418,8 +418,12 @@ if __name__ == "__main__":
                 is_valid_answer, ask_again = validate_input(ask_again)
                 
                 # if yes clear favorite
-                cursor.execute('''UPDATE Users SET Favorite = 'None' WHERE Email = ?''', (user_email,))
-
+                con = sqlite3.connect("users.db")
+                cur = con.cursor()
+                cur.execute('''UPDATE Users SET Favorite = 'None' WHERE Email = ?''', (user_email,))
+                con.commit()
+                con.close()
+                
                 if is_valid_answer and ask_again.lower() == "no":
                     restart_loop = False
 
